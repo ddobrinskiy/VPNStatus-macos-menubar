@@ -24,26 +24,18 @@ struct VPNStatusMenu: View {
     
     var body: some View {
         // Status header
-        HStack(spacing: 8) {
-            Image(systemName: vpnMonitor.isConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(vpnMonitor.isConnected ? .green : .red)
-            Text(vpnMonitor.isConnected ? "VPN Connected" : "VPN Disconnected")
-        }
-        .padding(.horizontal, 4)
+        Label(
+            vpnMonitor.isConnected ? "VPN Connected" : "VPN Disconnected",
+            systemImage: vpnMonitor.isConnected ? "checkmark.circle.fill" : "xmark.circle.fill"
+        )
+        .foregroundStyle(vpnMonitor.isConnected ? .green : .red)
         
         if vpnMonitor.isConnected && !vpnMonitor.vpnInterfaces.isEmpty {
             Divider()
             
-            Text("Active Interfaces:")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            
-            ForEach(vpnMonitor.vpnInterfaces, id: \.self) { interface in
-                HStack(spacing: 6) {
-                    Image(systemName: "network")
-                        .foregroundStyle(.secondary)
-                    Text(interface)
-                        .font(.system(.body, design: .monospaced))
+            Section("Active Interfaces") {
+                ForEach(vpnMonitor.vpnInterfaces, id: \.self) { interface in
+                    Label(interface, systemImage: "network")
                 }
             }
         }
@@ -53,20 +45,14 @@ struct VPNStatusMenu: View {
         Button {
             vpnMonitor.checkVPNStatus()
         } label: {
-            HStack {
-                Image(systemName: "arrow.clockwise")
-                Text("Refresh")
-            }
+            Label("Refresh", systemImage: "arrow.clockwise")
         }
         .keyboardShortcut("r", modifiers: .command)
         
         Button {
             NSApplication.shared.terminate(nil)
         } label: {
-            HStack {
-                Image(systemName: "power")
-                Text("Quit")
-            }
+            Label("Quit", systemImage: "power")
         }
         .keyboardShortcut("q", modifiers: .command)
     }
