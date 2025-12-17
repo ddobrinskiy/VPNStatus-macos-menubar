@@ -8,14 +8,10 @@ struct VPNStatusApp: App {
         MenuBarExtra {
             VPNStatusMenu(vpnMonitor: vpnMonitor)
         } label: {
-            if let countryCode = vpnMonitor.countryCode {
-                HStack(spacing: 1) {
-                    Image(systemName: vpnMonitor.isConnected ? "checkmark.shield.fill" : "xmark.shield")
-                    Text(countryCodeToFlag(countryCode))
-                }
-            } else {
-                // No location data yet
+            let displayText = vpnMonitor.countryCode.map { countryCodeToFlag($0) } ?? "⏳"
+            HStack(spacing: 1) {
                 Image(systemName: vpnMonitor.isConnected ? "checkmark.shield.fill" : "xmark.shield")
+                Text(displayText)
             }
         }
     }

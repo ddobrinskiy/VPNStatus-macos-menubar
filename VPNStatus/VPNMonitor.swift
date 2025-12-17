@@ -60,6 +60,15 @@ final class VPNMonitor: ObservableObject {
         self.vpnInterfaces = interfaces
         self.isConnected = !interfaces.isEmpty
         
+        // Set loading state BEFORE clearing data to avoid showing empty state
+        self.isLoadingLocation = true
+        
+        // Clear old location data immediately to avoid showing stale flag
+        self.ipAddress = nil
+        self.country = nil
+        self.countryCode = nil
+        self.city = nil
+        
         // Refresh IP location when VPN status changes
         Task { await fetchIPLocation() }
     }

@@ -2,114 +2,92 @@
 
 ## Overview
 
-A native macOS menu bar application that detects VPN connection status and displays a corresponding icon. Built with Swift and SwiftUI, targeting macOS 14+.
+A native macOS menu bar application that detects VPN connection status and displays a corresponding icon with country flag. Built with Swift and SwiftUI, targeting macOS 14+.
+
+**Repository:** https://github.com/ddobrinskiy/VPNStatus-macos-menubar
+
+## Current State
+
+The app is fully functional with these features:
+- Real-time VPN detection via network interface monitoring
+- Country flag display in menu bar (using ip-api.com geolocation)
+- Shield icon indicator (checkmark when connected, X when disconnected)
+- Dropdown menu showing country, city, IP address, and VPN interfaces
 
 ## Architecture
 
 ```
 VPNStatus/
 ├── VPNStatusApp.swift      # SwiftUI App with MenuBarExtra
-├── VPNMonitor.swift        # VPN detection logic + network monitoring
-├── Info.plist              # LSUIElement=true (menu bar only, no dock icon)
-├── VPNStatus.entitlements  # App permissions (sandbox disabled)
-└── Assets.xcassets/        # App icons and colors
+├── VPNMonitor.swift        # VPN detection + network monitoring + IP geolocation
+├── Info.plist              # LSUIElement=true, ATS exception for ip-api.com
+├── VPNStatus.entitlements  # App sandbox disabled
+└── Assets.xcassets/        # App icons (custom shield icon)
 ```
 
-## Thought Process
+## Key Files
 
-### 1. VPN Detection Strategy
+### VPNMonitor.swift
+- `checkVPNStatus()` - Detects VPN by checking network interfaces for IPv4-enabled utun/ppp/ipsec/tap/tun
+- `fetchIPLocation()` - Calls ip-api.com to get country, city, IP
+- `NWPathMonitor` - Watches for network changes and triggers refresh
 
-**Initial approach:** Check for network interfaces with VPN-related prefixes:
-- `utun*` - Modern VPN tunnels (WireGuard, IKEv2, etc.)
-- `ppp*` - Point-to-Point Protocol (L2TP, PPTP)
-- `ipsec*` - IPsec tunnels
-- `tap*` / `tun*` - OpenVPN-style interfaces
+### VPNStatusApp.swift
+- `MenuBarExtra` with dynamic label showing shield icon + country flag
+- `countryCodeToFlag()` - Converts "US" to 🇺🇸 emoji
+- Dropdown menu with location details and refresh/quit buttons
 
-**Problem encountered:** macOS uses `utun` interfaces for system services too (iCloud Private Relay, network extensions), not just VPNs. These persist even when no VPN is connected.
+## Build & Run
 
-**Solution:** Filter to only detect interfaces that have an **IPv4 address** assigned. Real VPN connections assign an IPv4 address to the tunnel interface, while system `utun` interfaces only have IPv6 link-local addresses.
+```bash
+# Build release
+xcodebuild -project VPNStatus.xcodeproj -scheme VPNStatus -configuration Release build
 
-```swift
-let hasIPv4 = addr.pointee.ifa_addr?.pointee.sa_family == UInt8(AF_INET)
-if isUp && isRunning && hasIPv4 {
-    vpnNames.insert(interfaceName)
-}
+# Install to Applications
+cp -R ~/Library/Developer/Xcode/DerivedData/VPNStatus-*/Build/Products/Release/VPNStatus.app /Applications/
+
+# Create release zip
+cd ~/Library/Developer/Xcode/DerivedData/VPNStatus-*/Build/Products/Release
+zip -r VPNStatus.zip VPNStatus.app
+
+# Create GitHub release
+gh release create v1.x.x VPNStatus.zip --title "VPN Status v1.x.x" --notes "Release notes here"
 ```
 
-### 2. Real-time Updates
+## Known Issues & Pending Fixes
 
-Used `NWPathMonitor` from the Network framework to observe network path changes. When connectivity changes, the VPN status is automatically rechecked.
+_No pending fixes at this time._
 
-```swift
-pathMonitor?.pathUpdateHandler = { [weak self] _ in
-    Task { @MainActor [weak self] in
-        self?.checkVPNStatus()
-    }
-}
-```
+### ✅ COMPLETED: Fix stale flag on VPN status change
 
-### 3. Menu Bar UI
+**Problem:** When VPN connects/disconnects, the old country flag persisted in the menu bar for ~0.5 seconds while the new IP location was being fetched.
 
-Used SwiftUI's `MenuBarExtra` (available macOS 13+) for a modern, declarative approach:
+**Solution implemented:**
+1. `VPNMonitor.swift`: Modified `checkVPNStatus()` to clear location data immediately before fetching new location
+2. `VPNStatusApp.swift`: Updated menu bar label to show an ellipsis loading indicator when `countryCode` is nil but `isLoadingLocation` is true
 
-- **Connected:** Filled shield icon (`lock.shield.fill`) in green
-- **Disconnected:** Empty shield icon (`lock.shield`) in gray
+## Technical Details
 
-The dropdown menu shows:
-- Connection status with checkmark/X icon
-- List of active VPN interfaces (for debugging)
-- Refresh button (⌘R)
-- Quit button (⌘Q)
+### VPN Detection
+- Uses `getifaddrs()` Darwin API to enumerate network interfaces
+- Filters for interfaces with VPN-related prefixes (utun, ppp, ipsec, tap, tun)
+- Only counts interfaces with IPv4 addresses (filters out system utun for iCloud Private Relay)
 
-### 4. App Sandbox Issue
+### IP Geolocation
+- Uses http://ip-api.com/json/ (free, no API key)
+- Requires ATS exception in Info.plist (HTTP not HTTPS)
+- Returns country, countryCode, city, and IP address
 
-**Problem:** Initial builds with app sandbox enabled couldn't read network interface information via `getifaddrs()`.
+### App Configuration
+- `LSUIElement = true` - Menu bar only, no dock icon
+- App sandbox disabled - Required for `getifaddrs()` access
+- Network client entitlement for API calls
 
-**Solution:** Disabled the app sandbox in entitlements. This is acceptable for a simple utility app that only reads network interface data.
-
-```xml
-<key>com.apple.security.app-sandbox</key>
-<false/>
-```
-
-## Key Implementation Details
-
-### Network Interface Detection
-
-Uses the Darwin C API `getifaddrs()` to enumerate all network interfaces:
-
-```swift
-var addresses: UnsafeMutablePointer<ifaddrs>?
-guard getifaddrs(&addresses) == 0, let firstAddr = addresses else {
-    return []
-}
-defer { freeifaddrs(addresses) }
-```
-
-For each interface, checks:
-1. Name matches VPN prefix (`utun`, `ppp`, etc.)
-2. Interface flags include `IFF_UP` and `IFF_RUNNING`
-3. Has an IPv4 address assigned (`AF_INET`)
-
-### Menu Bar Only App
-
-Set `LSUIElement = true` in Info.plist to make the app appear only in the menu bar with no Dock icon.
-
-### SwiftUI Concurrency
-
-The `VPNMonitor` class is marked `@MainActor` to ensure all UI updates happen on the main thread. The `NWPathMonitor` callback dispatches back to the main actor via `Task { @MainActor }`.
-
-## Testing
-
-1. **VPN Connected:** Shield icon turns green, shows "VPN Connected" with active interfaces listed
-2. **VPN Disconnected:** Shield icon turns gray, shows "VPN Disconnected"
-3. **Manual Refresh:** ⌘R or click Refresh button rechecks status
-4. **Auto Update:** Connecting/disconnecting VPN triggers automatic status refresh via `NWPathMonitor`
-
-## Future Improvements
-
-- Add notification when VPN connects/disconnects
-- Show VPN provider name if detectable
-- Add "Launch at Login" option
-- Support for detecting specific VPN configurations via `NEVPNManager`
-
+## Commits History
+1. Initial working VPN detection with shield icon
+2. Added IP geolocation with country flag
+3. Fixed menu layout with Label components  
+4. Added custom app icon
+5. Show shield + flag in menu bar for both states
+6. Created README and GitHub release v1.0.0
+7. Renamed repo to VPNStatus-macos-menubar
