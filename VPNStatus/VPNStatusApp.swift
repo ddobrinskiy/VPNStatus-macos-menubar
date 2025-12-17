@@ -8,14 +8,28 @@ struct VPNStatusApp: App {
         MenuBarExtra {
             VPNStatusMenu(vpnMonitor: vpnMonitor)
         } label: {
-            HStack(spacing: 2) {
-                Image(systemName: vpnMonitor.isConnected ? "checkmark.shield.fill" : "xmark.shield")
-                if vpnMonitor.isConnected {
-                    Image(systemName: "circle.fill")
-                        .font(.system(size: 6))
+            if let countryCode = vpnMonitor.countryCode {
+                HStack(spacing: 1) {
+                    Image(systemName: vpnMonitor.isConnected ? "checkmark.shield.fill" : "xmark.shield")
+                    Text(countryCodeToFlag(countryCode))
                 }
+            } else {
+                // No location data yet
+                Image(systemName: vpnMonitor.isConnected ? "checkmark.shield.fill" : "xmark.shield")
             }
         }
+    }
+    
+    /// Convert country code to flag emoji
+    private func countryCodeToFlag(_ code: String) -> String {
+        let base: UInt32 = 127397
+        var flag = ""
+        for scalar in code.uppercased().unicodeScalars {
+            if let unicode = Unicode.Scalar(base + scalar.value) {
+                flag.append(String(unicode))
+            }
+        }
+        return flag
     }
 }
 
