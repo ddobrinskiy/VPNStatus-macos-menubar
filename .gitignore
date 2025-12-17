@@ -1,0 +1,15 @@
+# Build artifacts
+*.zip
+build/
+DerivedData/
+
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
