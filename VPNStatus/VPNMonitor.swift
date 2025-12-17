@@ -2,6 +2,15 @@ import Foundation
 import Network
 import Combine
 
+/// IP geolocation response from ip-api.com
+struct IPLocation: Codable {
+    let status: String
+    let country: String?
+    let countryCode: String?
+    let city: String?
+    let query: String?  // IP address
+}
+
 /// Monitors VPN connection status by checking network interfaces
 @MainActor
 final class VPNMonitor: ObservableObject {
@@ -11,6 +20,13 @@ final class VPNMonitor: ObservableObject {
     
     /// List of detected VPN interface names (for debugging)
     @Published private(set) var vpnInterfaces: [String] = []
+    
+    /// Current IP location info
+    @Published private(set) var ipAddress: String?
+    @Published private(set) var country: String?
+    @Published private(set) var countryCode: String?
+    @Published private(set) var city: String?
+    @Published private(set) var isLoadingLocation: Bool = false
     
     /// Network path monitor for detecting connectivity changes
     private var pathMonitor: NWPathMonitor?
@@ -30,6 +46,7 @@ final class VPNMonitor: ObservableObject {
     init() {
         checkVPNStatus()
         startMonitoring()
+        Task { await fetchIPLocation() }
     }
     
     deinit {
@@ -42,6 +59,34 @@ final class VPNMonitor: ObservableObject {
         
         self.vpnInterfaces = interfaces
         self.isConnected = !interfaces.isEmpty
+        
+        // Refresh IP location when VPN status changes
+        Task { await fetchIPLocation() }
+    }
+    
+    /// Fetch current IP location from ip-api.com
+    func fetchIPLocation() async {
+        isLoadingLocation = true
+        defer { isLoadingLocation = false }
+        
+        guard let url = URL(string: "http://ip-api.com/json/?fields=status,country,countryCode,city,query") else {
+            return
+        }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let location = try JSONDecoder().decode(IPLocation.self, from: data)
+            
+            if location.status == "success" {
+                self.ipAddress = location.query
+                self.country = location.country
+                self.countryCode = location.countryCode
+                self.city = location.city
+            }
+        } catch {
+            // Silently fail - location info is optional
+            print("Failed to fetch IP location: \(error)")
+        }
     }
     
     /// Get list of active network interfaces that appear to be VPN tunnels

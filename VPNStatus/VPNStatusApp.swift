@@ -30,12 +30,39 @@ struct VPNStatusMenu: View {
         )
         .foregroundStyle(vpnMonitor.isConnected ? .green : .red)
         
+        // Location info
+        if let country = vpnMonitor.country {
+            Divider()
+            
+            Section("Location") {
+                if let countryCode = vpnMonitor.countryCode {
+                    let flag = countryCodeToFlag(countryCode)
+                    Text("\(flag) \(country)")
+                } else {
+                    Label(country, systemImage: "globe")
+                }
+                
+                if let city = vpnMonitor.city {
+                    Label(city, systemImage: "building.2")
+                }
+                
+                if let ip = vpnMonitor.ipAddress {
+                    Label(ip, systemImage: "network")
+                        .font(.system(.body, design: .monospaced))
+                }
+            }
+        } else if vpnMonitor.isLoadingLocation {
+            Divider()
+            Text("Loading location...")
+                .foregroundStyle(.secondary)
+        }
+        
         if vpnMonitor.isConnected && !vpnMonitor.vpnInterfaces.isEmpty {
             Divider()
             
-            Section("Active Interfaces") {
+            Section("Interfaces") {
                 ForEach(vpnMonitor.vpnInterfaces, id: \.self) { interface in
-                    Label(interface, systemImage: "network")
+                    Label(interface, systemImage: "point.3.connected.trianglepath.dotted")
                 }
             }
         }
@@ -55,5 +82,17 @@ struct VPNStatusMenu: View {
             Label("Quit", systemImage: "power")
         }
         .keyboardShortcut("q", modifiers: .command)
+    }
+    
+    /// Convert country code to flag emoji
+    private func countryCodeToFlag(_ code: String) -> String {
+        let base: UInt32 = 127397
+        var flag = ""
+        for scalar in code.uppercased().unicodeScalars {
+            if let unicode = Unicode.Scalar(base + scalar.value) {
+                flag.append(String(unicode))
+            }
+        }
+        return flag
     }
 }
