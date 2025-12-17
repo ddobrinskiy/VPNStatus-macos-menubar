@@ -1,0 +1,4 @@
+# Terminal Commands
+
+When running terminal commands, do not prepend them with `cd` to the project directory. Assume the shell is already in the correct working directory.
+
