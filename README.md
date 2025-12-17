@@ -16,7 +16,7 @@ A lightweight macOS menu bar app that shows your VPN connection status and curre
 
 ### Latest Release: v1.0.0
 
-[**Download VPNStatus.zip**](https://github.com/ddobrinskiy/vc-ipstatus/releases/download/v1.0.0/VPNStatus.zip)
+[**Download VPNStatus.zip**](https://github.com/ddobrinskiy/VPNStatus-macos-menubar/releases/download/v1.0.0/VPNStatus.zip)
 
 ## Installation
 
@@ -65,7 +65,7 @@ IP geolocation is provided by [ip-api.com](http://ip-api.com).
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/ddobrinskiy/vc-ipstatus.git
+   git clone https://github.com/ddobrinskiy/VPNStatus-macos-menubar.git
    cd vc-ipstatus
    ```
 
